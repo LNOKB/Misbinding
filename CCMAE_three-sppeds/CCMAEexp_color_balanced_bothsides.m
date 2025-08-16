@@ -358,7 +358,7 @@ try
             RT = round(endrt - startrt,5);
 
             if exist('CCMAEexp_color_balanced_bothsides.csv', 'file') ~= 2
-                fid = fopen('CCMAE_color_balanced_bothsides.csv', 'wt');
+                fid = fopen('CCMAEexp_color_balanced_bothsides.csv', 'wt');
                 fprintf(fid, 'Subnum,nowblock,nowblocktype,nowtrial,ind_up_color,test_color,testspeed,leftorright,keypress,RT\n');
                 fclose(fid);
             end
