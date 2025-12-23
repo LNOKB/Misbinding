@@ -25,6 +25,8 @@ data$test_color <- factor(data$test_color,
                             labels = c("Test : red", "Test : green"))
 
 
+data <- data %>%
+  filter(!(Subnum %in% c(4, 5, 8, 10, 12)))
 
 fit <- quickpsy(data, sospeed, opposite_to_ind_response, grouping = c("nowblocktype","Subnum"))
 #, "test_color", ,fun = logistic_fun, bootstrap = "none")
@@ -34,14 +36,14 @@ plot(fit, color = nowblocktype)+
   labs(x= "Test Speed (°/sec)", y = "Response against inducer rates (%)")+
   scale_x_continuous(labels = c("S0.4", "S0.2", "0", "O0.2", "O0.4"))
 
-#down response rate plot
-summary_data <- data %>%
-  group_by(nowblocktype, testspeed, test_color,Subnum) %>%
-  summarise(mean_keypress = mean(keypress), .groups = "drop")
-
-ggplot(summary_data, aes(x = testspeed, y = mean_keypress, color = test_color)) +
-  geom_point() +
-  geom_line() +
-  facet_wrap(Subnum ~ nowblocktype, nrow = 10, ncol = 2) +
-  labs(x = "Test Speed", y = "Down response rate(%)") +
-  theme_minimal()
+# #down response rate plot
+# summary_data <- data %>%
+#   group_by(nowblocktype, testspeed, test_color,Subnum) %>%
+#   summarise(mean_keypress = mean(keypress), .groups = "drop")
+# 
+# ggplot(summary_data, aes(x = testspeed, y = mean_keypress, color = test_color)) +
+#   geom_point() +
+#   geom_line() +
+#   facet_wrap(Subnum ~ nowblocktype, nrow = 10, ncol = 2) +
+#   labs(x = "Test Speed", y = "Down response rate(%)") +
+#   theme_minimal()
