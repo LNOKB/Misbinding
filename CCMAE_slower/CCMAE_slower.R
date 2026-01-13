@@ -77,8 +77,8 @@ p2_data <- dat_wide %>%
   select(-parn)
 
 bf_p1 <- ttestBF(
-  x = log(p1_data$Misbinding),
-  y = log(p1_data$Control),
+  x = p1_data$Misbinding,
+  y = p1_data$Control,
   paired = TRUE
 )
 
@@ -121,8 +121,8 @@ print(summary(chains_p1))
 
 # ベイズ対応のあるt検定
 bf_p2 <- ttestBF(
-  x = log(p2_data$Misbinding),
-  y = log(p2_data$Control),
+  x = p2_data$Misbinding,
+  y = p2_data$Control,
   paired = TRUE
 )
 print(bf_p2)
@@ -163,28 +163,17 @@ print(summary(chains_p2))
 
 ###############################################################################
 #violin plot for each parameters
-# 対数ではない場合
-# p1_long <- p1_data %>%
-#   pivot_longer(cols = c(Misbinding, Control), 
-#                names_to = "Condition", 
-#                values_to = "Value") %>%
-#   mutate(Parameter = "p1 (Threshold)")
-# 
-# p2_long <- p2_data %>%
-#   pivot_longer(cols = c(Misbinding, Control), 
-#                names_to = "Condition", 
-#                values_to = "Value") %>%
-#   mutate(Parameter = "p2 (Slope)")
-
 p1_long <- p1_data %>%
-  mutate(Misbinding = log(Misbinding), Control = log(Control)) %>%
-  pivot_longer(cols = c(Misbinding, Control), 
-               names_to = "Condition", values_to = "Value")
+  pivot_longer(cols = c(Misbinding, Control),
+               names_to = "Condition",
+               values_to = "Value") %>%
+  mutate(Parameter = "p1 (Threshold)")
 
 p2_long <- p2_data %>%
-  mutate(Misbinding = log(Misbinding), Control = log(Control)) %>%
-  pivot_longer(cols = c(Misbinding, Control), 
-               names_to = "Condition", values_to = "Value")
+  pivot_longer(cols = c(Misbinding, Control),
+               names_to = "Condition",
+               values_to = "Value") %>%
+  mutate(Parameter = "p2 (Slope)")
 
 
 # p1のプロット
@@ -194,10 +183,12 @@ p1_plot <- ggplot(p1_long, aes(x = Condition, y = Value)) +
             linewidth = 1, alpha = 0.7) +
   geom_point(aes(color = factor(Subnum)), size = 3, alpha = 0.7) +
   labs(x = NULL,
-       y = "Log Threshold", 
+       y = "Threshold", 
        color = "Subject") +
   theme_minimal() +
-  theme(legend.position = "right")
+  theme(legend.position = "right")+
+  stat_summary(fun = mean, geom = "point", size = 2.5)
+
 ggsave("p1.png", p1_plot, width = 4, height = 3, dpi = 300)
 
 
@@ -208,9 +199,11 @@ p2_plot <- ggplot(p2_long, aes(x = Condition, y = Value)) +
             linewidth = 1, alpha = 0.7) +
   geom_point(aes(color = factor(Subnum)), size = 3, alpha = 0.7) +
   labs(x = NULL,
-       y = "Log Slope", 
+       y = "Slope", 
        color = "Subject") +
   theme_minimal() +
-  theme(legend.position = "right")
+  theme(legend.position = "right")+
+  stat_summary(fun = mean, geom = "point", size = 2.5)
+
 ggsave("p2.png", p2_plot, width = 4, height = 3, dpi = 300)
 
