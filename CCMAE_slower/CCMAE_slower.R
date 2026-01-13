@@ -33,6 +33,13 @@ data$test_color <- factor(data$test_color,
 data <- data %>%
   filter(!(Subnum %in% c(4, 5, 6, 8, 10, 12)))
 
+data <- data %>%
+  mutate(sospeed = recode(sospeed,
+                          `1` = -0.6,
+                          `2` = -0.3,
+                          `3` =  0,
+                          `4` =  0.3,
+                          `5` =  0.6))
 
 fit <- quickpsy(data, sospeed, opposite_to_ind_response, grouping = c("nowblocktype","Subnum"))
 #, "test_color", ,fun = logistic_fun, bootstrap = "none")
