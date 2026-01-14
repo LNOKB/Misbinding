@@ -1,50 +1,74 @@
 library(quickpsy)
 library(dplyr)
+library(tidyr)
+library(ggplot2)
 
 data <- read.csv("CCMAEexp.csv")
 
-#"the percentage of trials in which subjects indicated directions for the test stimuli 
-#that were opposite to the perceived direction of adapting dots
-#(which possessed the same color as the test stimuli) "
-
-#"the percentage of trials in which subjects indicated that 
-#the moving direction of a test stimulus was the same as 
-#the physical direction of the adapting dots 
-#(or opposite to the perceived direction).
-
-#S and O indicate that the moving direction of a test stimulus was the same as or opposite to 
-#that of the adapting dots in the effect part
-#(with the same color as the dots in the test stimulus).
+data <- data %>%
+  filter(!(Subnum %in% c(7, 11))) %>%
+  mutate(
+    sospeed = case_when(
+      # test_color == 0 (red) & nowblocktype == 1 (red↑)
+      test_color == 0 & nowblocktype == 1 & testspeed == 0.6  ~ 5L,
+      test_color == 0 & nowblocktype == 1 & testspeed == 0.3  ~ 4L,
+      test_color == 0 & nowblocktype == 1 & testspeed == 0    ~ 3L,
+      test_color == 0 & nowblocktype == 1 & testspeed == -0.3 ~ 2L,
+      test_color == 0 & nowblocktype == 1 & testspeed == -0.6 ~ 1L,
+      
+      # test_color == 0 (red) & nowblocktype == 2 (red↓)
+      test_color == 0 & nowblocktype == 2 & testspeed == 0.6  ~ 1L,
+      test_color == 0 & nowblocktype == 2 & testspeed == 0.3  ~ 2L,
+      test_color == 0 & nowblocktype == 2 & testspeed == 0    ~ 3L,
+      test_color == 0 & nowblocktype == 2 & testspeed == -0.3 ~ 4L,
+      test_color == 0 & nowblocktype == 2 & testspeed == -0.6 ~ 5L,
+      
+      # test_color == 1 (green) & nowblocktype == 1 (green↓)
+      test_color == 1 & nowblocktype == 1 & testspeed == 0.6  ~ 1L,
+      test_color == 1 & nowblocktype == 1 & testspeed == 0.3  ~ 2L,
+      test_color == 1 & nowblocktype == 1 & testspeed == 0    ~ 3L,
+      test_color == 1 & nowblocktype == 1 & testspeed == -0.3 ~ 4L,
+      test_color == 1 & nowblocktype == 1 & testspeed == -0.6 ~ 5L,
+      
+      # test_color == 1 (green) & nowblocktype == 2 (green↑)
+      test_color == 1 & nowblocktype == 2 & testspeed == 0.6  ~ 5L,
+      test_color == 1 & nowblocktype == 2 & testspeed == 0.3  ~ 4L,
+      test_color == 1 & nowblocktype == 2 & testspeed == 0    ~ 3L,
+      test_color == 1 & nowblocktype == 2 & testspeed == -0.3 ~ 2L,
+      test_color == 1 & nowblocktype == 2 & testspeed == -0.6 ~ 1L,
+      
+      TRUE ~ NA_integer_
+    )
+  )
 
 data$nowblocktype <- factor(data$nowblocktype,
-                           levels = c(1, 2),
-                           labels = c("Misbinding", "Control"))
-#c("Misbinding(red↑ green↓)", "Control(red↓ green↑)"))
+                            levels = c(1, 2),
+                            labels = c("Misbinding", "Control"))
 
 data$test_color <- factor(data$test_color,
-                            levels = c(0, 1),
-                            labels = c("Test : red", "Test : green"))
+                          levels = c(0, 1),
+                          labels = c("Test : red", "Test : green"))
 
-data <- data %>%
-  filter(!(Subnum %in% c(7, 11)))
+# QuickPSY
+fit <- quickpsy(data, sospeed, opposite_to_ind_response, grouping = c("nowblocktype", "Subnum"))
 
-fit <- quickpsy(data, testspeed, keypress, grouping = c("nowblocktype", "Subnum"))
+print(fit$par)
 
-plot(fit, color = nowblocktype)+
-  labs(x= "Test Speed (°/sec)", y = "Response against inducer rates (%)")+
-  scale_x_continuous(labels = c("S0.6", "S0.3", "0", "O0.3", "O0.6"))
+plot(fit, color = nowblocktype) +
+  labs(x = "Test Speed", y = "Response Rate") +
+  scale_x_continuous(breaks = 1:5, labels = c("O0.6", "O0.3", "0", "S0.3", "S0.6"))
 
-#down response rate plot
-summary_data <- data %>%
-  group_by(nowblocktype, testspeed, test_color,Subnum) %>%
-  summarise(mean_keypress = mean(keypress), .groups = "drop")
-
-ggplot(summary_data, aes(x = testspeed, y = mean_keypress, color = test_color)) +
-  geom_point() +
-  geom_line() +
-  facet_wrap(Subnum ~ nowblocktype, nrow = 10, ncol = 2) +
-  labs(x = "Test Speed", y = "Down response rate(%)") +
-  theme_minimal()
+# #down response rate plot
+# summary_data <- data %>%
+#   group_by(nowblocktype, testspeed, test_color,Subnum) %>%
+#   summarise(mean_keypress = mean(keypress), .groups = "drop")
+# 
+# ggplot(summary_data, aes(x = testspeed, y = mean_keypress, color = test_color)) +
+#   geom_point() +
+#   geom_line() +
+#   facet_wrap(Subnum ~ nowblocktype, nrow = 10, ncol = 2) +
+#   labs(x = "Test Speed", y = "Down response rate(%)") +
+#   theme_minimal()
 
 ###############################################################################
 library(BayesFactor)
