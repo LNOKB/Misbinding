@@ -31,15 +31,49 @@ data$test_color <- factor(data$test_color,
 
 
 data <- data %>%
-  filter(!(Subnum %in% c(4, 5, 6, 8, 10, 12)))
+  mutate(sospeed = recode(sospeed,
+                          `1` = -0.4,
+                          `2` = -0.2,
+                          `3` =  0,
+                          `4` =  0.2,
+                          `5` =  0.4))
+
+# # 除外被験者のデータのみ
+# data_excluded <- data %>%
+#   filter(Subnum %in% c(4, 5, 6, 8, 10, 12))
+# 
+# # 平均反応率を計算
+# summary_excluded <- data_excluded %>%
+#   group_by(nowblocktype, Subnum, sospeed) %>%
+#   summarise(mean_response = mean(opposite_to_ind_response, na.rm = TRUE),
+#             .groups = "drop")
+# 
+# # プロット
+# ggplot(summary_excluded, aes(x = sospeed, y = mean_response, color = nowblocktype)) +
+#   geom_point(size = 3) +
+#   geom_line(aes(group = nowblocktype), linewidth = 1) +
+#   facet_wrap(~ Subnum, ncol = 2) +
+#   scale_x_continuous(breaks = c(-0.6, -0.3, 0, 0.3, 0.6),
+#                      labels = c("S0.6", "S0.3", "0", "O0.3", "O0.6")) +
+#   scale_y_continuous(limits = c(0, 1)) +
+#   scale_color_manual(values = c("Misbinding" = "#E07A7A",
+#                                 "Control" = "#7ABFBF")) +
+#   labs(x = "Test Speed (°/sec)",
+#        y = "Response toward inducer rates (%)") +
+#   theme_minimal(base_size = 12) +
+#   theme(
+#     legend.position = "none",
+#     panel.background = element_rect(fill = "gray92", color = NA),
+#     panel.grid.major = element_line(color = "white", linewidth = 0.5),
+#     panel.grid.minor = element_blank(),
+#     strip.background = element_rect(fill = "gray85", color = NA),
+#     strip.text = element_text(face = "bold", size = 12)
+#   )
+# 
+# ggsave("excluded_subjects_plot.png", width = 10, height = 8, dpi = 300)
 
 data <- data %>%
-  mutate(sospeed = recode(sospeed,
-                          `1` = -0.6,
-                          `2` = -0.3,
-                          `3` =  0,
-                          `4` =  0.3,
-                          `5` =  0.6))
+  filter(!(Subnum %in% c(4, 5, 6, 8, 10, 12)))
 
 fit <- quickpsy(data, sospeed, opposite_to_ind_response, grouping = c("nowblocktype","Subnum"))
 #, "test_color", ,fun = logistic_fun, bootstrap = "none")
