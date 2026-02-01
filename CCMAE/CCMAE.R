@@ -92,7 +92,7 @@ data$test_color <- factor(data$test_color,
 # ggsave("excluded_subjects_plot.png", width = 8, height = 4, dpi = 300)
 
 data <- data %>%
-  filter(!(Subnum %in% c(7, 11))) %>%
+  filter(!(Subnum %in% c(7, 11))) 
 
 # QuickPSY
 fit <- quickpsy(data, sospeed, opposite_to_ind_response, grouping = c("nowblocktype", "Subnum"))
@@ -102,18 +102,6 @@ print(fit$par)
 plot(fit, color = nowblocktype) +
   labs(x = "Test Speed", y = "Response Rate") +
   scale_x_continuous(breaks = 1:5, labels = c("O0.6", "O0.3", "0", "S0.3", "S0.6"))
-
-# #down response rate plot
-# summary_data <- data %>%
-#   group_by(nowblocktype, testspeed, test_color,Subnum) %>%
-#   summarise(mean_keypress = mean(keypress), .groups = "drop")
-# 
-# ggplot(summary_data, aes(x = testspeed, y = mean_keypress, color = test_color)) +
-#   geom_point() +
-#   geom_line() +
-#   facet_wrap(Subnum ~ nowblocktype, nrow = 10, ncol = 2) +
-#   labs(x = "Test Speed", y = "Down response rate(%)") +
-#   theme_minimal()
 
 ###############################################################################
 library(BayesFactor)
