@@ -57,39 +57,54 @@ data$test_color <- factor(data$test_color,
                           labels = c("Test : red", "Test : green"))
 
 
-# # 除外被験者のデータのみ
+# # 除外被験者のfit
 # data_excluded <- data %>%
 #   filter(Subnum %in% c(7, 11))
 # 
-# # 平均反応率を計算
-# summary_excluded <- data_excluded %>%
-#   group_by(nowblocktype, Subnum, sospeed) %>%
-#   summarise(mean_response = mean(opposite_to_ind_response, na.rm = TRUE),
-#             .groups = "drop")
+# fit_excluded <- quickpsy(data_excluded, sospeed, opposite_to_ind_response,
+#                          grouping = c("nowblocktype", "Subnum"))
 # 
-# # プロット
-# ggplot(summary_excluded, aes(x = sospeed, y = mean_response, color = nowblocktype)) +
-#   geom_point(size = 3) +
-#   geom_line(aes(group = nowblocktype), linewidth = 1) +
-#   facet_wrap(~ Subnum, ncol = 2) +
-#   scale_x_continuous(breaks = c(-0.6, -0.3, 0, 0.3, 0.6),
-#                      labels = c("S0.6", "S0.3", "0", "O0.3", "O0.6")) +
-#   scale_y_continuous(limits = c(0, 1)) +
-#   scale_color_manual(values = c("Misbinding" = "#E07A7A", 
-#                                 "Control" = "#7ABFBF")) +
-#   labs(x = "Test Speed (°/sec)", 
-#        y = "Response toward inducer rates (%)") +
-#   theme_minimal(base_size = 12) +
+# curves_ex <- fit_excluded$curves
+# avgs_ex   <- fit_excluded$averages
+# 
+# individual_excluded_plot <- ggplot() +
+#   geom_point(
+#     data = avgs_ex,
+#     aes(x = sospeed, y = prob, color = nowblocktype),
+#     size = 1.8, alpha = 0.7, shape = 16
+#   ) +
+#   geom_line(
+#     data = curves_ex,
+#     aes(x = x, y = y, color = nowblocktype, group = nowblocktype),
+#     linewidth = 0.8
+#   ) +
+#   geom_hline(yintercept = 0.5, linetype = "dashed", linewidth = 0.4, color = "gray60") +
+#   facet_wrap(~ Subnum, ncol = 1) +
+#   scale_color_manual(values = COLORS) +
+#   scale_x_continuous(
+#     breaks = c(-0.6, -0.3, 0, 0.3, 0.6),
+#     labels = speed_labels
+#   ) +
+#   scale_y_continuous(
+#     limits = c(0, 1),
+#     breaks = c(0, 0.5, 1),
+#     labels = scales::percent_format(accuracy = 1)
+#   ) +
+#   labs(
+#     x     = "Test speed (°/s)",
+#     y     = "Response rate (%)",
+#     color = NULL
+#   ) +
+#   theme_publication() +
 #   theme(
 #     legend.position = "none",
-#     panel.background = element_rect(fill = "gray92", color = NA),
-#     panel.grid.major = element_line(color = "white", linewidth = 0.5),
-#     panel.grid.minor = element_blank(),
-#     strip.background = element_rect(fill = "gray85", color = NA),
-#     strip.text = element_text(face = "bold", size = 12)
+#     axis.text.x     = element_text(size = 8, angle = 45, hjust = 1),
+#     axis.text.y     = element_text(size = 8),
+#     strip.text      = element_text(size = 9),
+#     panel.spacing   = unit(0.8, "lines")
 #   )
 # 
-# ggsave("excluded_subjects_plot.png", width = 8, height = 4, dpi = 300)
+# ggsave("fit_excluded.png", individual_excluded_plot, width = 5, height = 8, units = "cm", dpi = 300)
 
 data <- data %>%
   filter(!(Subnum %in% c(7, 11))) 
@@ -99,9 +114,117 @@ fit <- quickpsy(data, sospeed, opposite_to_ind_response, grouping = c("nowblockt
 
 print(fit$par)
 
-plot(fit, color = nowblocktype) +
-  labs(x = "Test Speed", y = "Response Rate") +
-  scale_x_continuous(breaks = 1:5, labels = c("O0.6", "O0.3", "0", "S0.3", "S0.6"))
+# plot(fit, color = nowblocktype) +
+#   labs(x = "Test Speed", y = "Response Rate") +
+#   scale_x_continuous(breaks = 1:5, labels = c("O0.6", "O0.3", "0", "S0.3", "S0.6"))
+
+# --- 共通テーマ ---
+theme_publication <- function(base_size = 11) {
+  theme_classic(base_size = base_size) +
+    theme(
+      axis.line        = element_line(linewidth = 0.5, color = "black"),
+      axis.ticks       = element_line(linewidth = 0.4, color = "black"),
+      axis.text        = element_text(size = base_size - 1, color = "black"),
+      axis.title       = element_text(size = base_size, color = "black"),
+      strip.background = element_blank(),
+      strip.text       = element_text(size = base_size - 1, color = "black"),
+      legend.background = element_blank(),
+      legend.key        = element_blank(),
+      legend.title      = element_blank(),
+      legend.text       = element_text(size = base_size - 1),
+      panel.spacing     = unit(1, "lines")
+    )
+}
+
+COLORS <- c("Misbinding" = "#E8826A", "Control" = "#5BB8C4")
+
+# --- fit$curves と fit$averages を取り出す ---
+curves <- fit$curves
+avgs   <- fit$averages
+
+# x軸ラベル用
+speed_labels <- c("-0.6" = "S0.6", "-0.3" = "S0.3", "0" = "0", "0.3" = "O0.3", "0.6" = "O0.6")
+
+fit_plot <- ggplot() +
+  # 個人の平均観測点（小さめ・半透明）
+  geom_point(
+    data = avgs,
+    aes(x = sospeed, y = prob, color = nowblocktype),
+    size = 1.8, alpha = 0.45, shape = 16
+  ) +
+  # フィッティング曲線（条件別・被験者別）
+  geom_line(
+    data = curves,
+    aes(x = x, y = y, group = interaction(nowblocktype, Subnum), color = nowblocktype),
+    linewidth = 0.45, alpha = 0.35
+  ) +
+  # 条件の平均曲線（太め）
+  stat_summary(
+    data = curves,
+    aes(x = x, y = y, color = nowblocktype, group = nowblocktype),
+    fun = mean, geom = "line", linewidth = 1.2
+  ) +
+  # 50%閾値の水平・垂直補助線
+  geom_hline(yintercept = 0.5, linetype = "dashed", linewidth = 0.4, color = "gray60") +
+  scale_color_manual(values = COLORS) +
+  scale_x_continuous(
+    breaks = c(-0.6, -0.3, 0, 0.3, 0.6),
+    labels = speed_labels
+  ) +
+  scale_y_continuous(
+    limits = c(0, 1),
+    breaks = seq(0, 1, 0.25),
+    labels = scales::percent_format(accuracy = 1)
+  ) +
+  labs(
+    x     = "Test speed (°/s)",
+    y     = "Response rate (%)",
+    color = NULL
+  ) +
+  theme_publication() +
+  theme(legend.position = c(0.78, 0.15))
+
+ggsave("fit_psychometric.png", fit_plot, width = 9,  height = 7,  units = "cm", dpi = 300)
+
+# --- 参加者ごとのプロット ---
+individual_plot <- ggplot() +
+  geom_point(
+    data = avgs,
+    aes(x = sospeed, y = prob, color = nowblocktype),
+    size = 1.8, alpha = 0.7, shape = 16
+  ) +
+  geom_line(
+    data = curves,
+    aes(x = x, y = y, color = nowblocktype, group = nowblocktype),
+    linewidth = 0.8
+  ) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", linewidth = 0.4, color = "gray60") +
+  facet_wrap(~ Subnum, ncol = 5) +
+  scale_color_manual(values = COLORS) +
+  scale_x_continuous(
+    breaks = c(-0.6, -0.3, 0, 0.3, 0.6),
+    labels = speed_labels
+  ) +
+  scale_y_continuous(
+    limits = c(0, 1),
+    breaks = c(0, 0.5, 1),
+    labels = scales::percent_format(accuracy = 1)
+  ) +
+  labs(
+    x     = "Test speed (°/s)",
+    y     = "Response rate (%)",
+    color = NULL
+  ) +
+  theme_publication() +
+  theme(
+    legend.position  = "none",
+    axis.text.x      = element_text(size = 8, angle = 45, hjust = 1),
+    axis.text.y      = element_text(size = 8),
+    strip.text       = element_text(size = 9, face = "plain"),
+    panel.spacing    = unit(0.8, "lines")
+  )
+
+ggsave("fit_individual.png", individual_plot, width = 18, height = 8, units = "cm", dpi = 300)
 
 ###############################################################################
 library(BayesFactor)
