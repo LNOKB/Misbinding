@@ -184,7 +184,7 @@ fit_plot <- ggplot() +
   theme_publication() +
   theme(legend.position = c(0.78, 0.15))
 
-ggsave("fit_psychometric.png", fit_plot, width = 9,  height = 7,  units = "cm", dpi = 300)
+ggsave("fit_all.png", fit_plot, width = 9,  height = 7,  units = "cm", dpi = 300)
 
 # --- 参加者ごとのプロット ---
 individual_plot <- ggplot() +
