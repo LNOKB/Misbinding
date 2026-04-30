@@ -223,33 +223,74 @@ p2_long <- p2_data %>%
   mutate(Parameter = "p2 (Slope)")
 
 
-# p1のプロット
-p1_plot <- ggplot(p1_long, aes(x = Condition, y = Value)) +
-  geom_violin(fill = "#8da0cb", alpha = 0.6) +
-  geom_line(aes(group = Subnum, color = factor(Subnum)), 
-            linewidth = 1, alpha = 0.7) +
-  geom_point(aes(color = factor(Subnum)), size = 3, alpha = 0.7) +
-  labs(x = NULL,
-       y = "Threshold", 
-       color = "Subject") +
-  theme_minimal() +
-  theme(legend.position = "right") +
-  stat_summary(fun = mean, geom = "point", size = 2.5)
+# --- 共通テーマ（論文スタイル） ---
+theme_publication <- function(base_size = 11) {
+  theme_classic(base_size = base_size) +
+    theme(
+      axis.line        = element_line(linewidth = 0.5, color = "black"),
+      axis.ticks       = element_line(linewidth = 0.4, color = "black"),
+      axis.text        = element_text(size = base_size - 1, color = "black"),
+      axis.title       = element_text(size = base_size, color = "black"),
+      legend.position  = "none",
+      strip.background = element_blank(),
+      strip.text       = element_blank(),
+      plot.title       = element_text(size = base_size, face = "plain", hjust = 0.5),
+      panel.spacing    = unit(1, "lines")
+    )
+}
 
-ggsave("p1.png", p1_plot, width = 4, height = 3, dpi = 300)
+COLORS <- c("Misbinding" = "#E8826A", "Control" = "#5BB8C4")
 
+# --- BF値を文字列ラベルに変換する関数 ---
+format_bf <- function(bf) {
+  if (bf >= 100)        sprintf("BF[10] == '%.0f'", bf)
+  else if (bf >= 10)    sprintf("BF[10] == '%.1f'", bf)
+  else if (bf >= 1)     sprintf("BF[10] == '%.2f'", bf)
+  else if (bf >= 0.1)   sprintf("BF[10] == '%.2f'", bf)
+  else                  sprintf("BF[10] == '%.3f'", bf)
+}
 
-# p2のプロット
-p2_plot <- ggplot(p2_long, aes(x = Condition, y = Value)) +
-  geom_violin(fill = "#fc8d62", alpha = 0.6) +
-  geom_line(aes(group = Subnum, color = factor(Subnum)), 
-            linewidth = 1, alpha = 0.7) +
-  geom_point(aes(color = factor(Subnum)), size = 3, alpha = 0.7) +
-  labs(x = NULL,
-       y = "Slope", 
-       color = "Subject") +
-  theme_minimal() +
-  theme(legend.position = "right")+
-  stat_summary(fun = mean, geom = "point", size = 2.5)
-ggsave("p2.png", p2_plot, width = 4, height = 3, dpi = 300)
+bf_label_p1 <- format_bf(bf_value_p1)  # 0.369
+bf_label_p2 <- format_bf(bf_value_p2)  # 0.442
 
+# --- p1 プロット ---
+p1_plot <- ggplot(p1_long, aes(x = Condition, y = Value, fill = Condition)) +
+  geom_violin(trim = TRUE, alpha = 0.30, color = NA, width = 0.7) +
+  geom_line(aes(group = Subnum), linewidth = 0.55, alpha = 0.35, color = "gray50") +
+  geom_point(aes(color = Condition), size = 2.2, alpha = 0.75) +
+  stat_summary(
+    fun = mean, geom = "point",
+    shape = 21, size = 3.5, stroke = 1.4,
+    fill = "white", aes(color = Condition)
+  ) +
+  scale_fill_manual(values  = COLORS) +
+  scale_color_manual(values = COLORS) +
+  scale_x_discrete(limits = c("Misbinding", "Control")) +
+  labs(x = NULL, y = "Threshold",
+       title = parse(text = paste0(bf_label_p1))) +
+  theme_publication()
+
+# --- p2 プロット ---
+p2_plot <- ggplot(p2_long, aes(x = Condition, y = Value, fill = Condition)) +
+  geom_violin(trim = TRUE, alpha = 0.30, color = NA, width = 0.7) +
+  geom_line(aes(group = Subnum), linewidth = 0.55, alpha = 0.35, color = "gray50") +
+  geom_point(aes(color = Condition), size = 2.2, alpha = 0.75) +
+  stat_summary(
+    fun = mean, geom = "point",
+    shape = 21, size = 3.5, stroke = 1.4,
+    fill = "white", aes(color = Condition)
+  ) +
+  scale_fill_manual(values  = COLORS) +
+  scale_color_manual(values = COLORS) +
+  scale_x_discrete(limits = c("Misbinding", "Control")) +
+  labs(x = NULL, y = "Slope",
+       title = parse(text = paste0(bf_label_p2))) +
+  theme_publication()
+
+# --- 並べて保存 ---
+library(patchwork)
+
+combined <- p1_plot + p2_plot +
+  plot_layout(ncol = 2)
+
+ggsave("violin_params.png", combined, width = 10, height = 6, units = "cm", dpi = 300)
