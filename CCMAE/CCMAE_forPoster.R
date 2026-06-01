@@ -1,157 +1,169 @@
+# =============================================================================
+# CCMAE Experiment – Publication-ready figures
+# =============================================================================
+
 library(quickpsy)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
 
-data <- read.csv("CCMAEexp.csv")
+# -----------------------------------------------------------------------------
+# 0. Shared theme for publication figures
+# -----------------------------------------------------------------------------
 
-data <- data %>%
+theme_publication <- function(base_size = 14) {
+  theme_classic(base_size = base_size) +
+    theme(
+      # Axes
+      axis.line        = element_line(color = "black", linewidth = 0.6),
+      axis.ticks       = element_line(color = "black", linewidth = 0.4),
+      axis.ticks.length = unit(3, "pt"),
+      axis.text        = element_text(color = "black", size = base_size - 2),
+      axis.title       = element_text(color = "black", size = base_size),
+      axis.title.y     = element_text(margin = margin(r = 8)),
+      axis.title.x     = element_text(margin = margin(t = 8)),
+      # Panel
+      panel.grid       = element_blank(),
+      panel.background = element_rect(fill = "white", color = NA),
+      plot.background  = element_rect(fill = "white", color = NA),
+      # Margins
+      plot.margin      = margin(10, 12, 8, 8)
+    )
+}
+
+# -----------------------------------------------------------------------------
+# 1. Load & preprocess data
+# -----------------------------------------------------------------------------
+
+raw <- read.csv("CCMAEexp.csv")
+
+# Compute sospeed: recode testspeed so that the direction always aligns with
+# "speed relative to the inducer" (positive = same direction as inducer)
+raw <- raw %>%
   mutate(
     sospeed = case_when(
-      # test_color == 0 (red) & nowblocktype == 1 (red↑)
-      test_color == 0 & nowblocktype == 1 & testspeed == 0.6  ~ 5L,
-      test_color == 0 & nowblocktype == 1 & testspeed == 0.3  ~ 4L,
-      test_color == 0 & nowblocktype == 1 & testspeed == 0    ~ 3L,
-      test_color == 0 & nowblocktype == 1 & testspeed == -0.3 ~ 2L,
-      test_color == 0 & nowblocktype == 1 & testspeed == -0.6 ~ 1L,
+      # Red stimulus, Block type 1 (inducer moves upward → red moves up)
+      test_color == 0 & nowblocktype == 1 & testspeed ==  0.6 ~  0.6,
+      test_color == 0 & nowblocktype == 1 & testspeed ==  0.3 ~  0.3,
+      test_color == 0 & nowblocktype == 1 & testspeed ==  0.0 ~  0.0,
+      test_color == 0 & nowblocktype == 1 & testspeed == -0.3 ~ -0.3,
+      test_color == 0 & nowblocktype == 1 & testspeed == -0.6 ~ -0.6,
       
-      # test_color == 0 (red) & nowblocktype == 2 (red↓)
-      test_color == 0 & nowblocktype == 2 & testspeed == 0.6  ~ 1L,
-      test_color == 0 & nowblocktype == 2 & testspeed == 0.3  ~ 2L,
-      test_color == 0 & nowblocktype == 2 & testspeed == 0    ~ 3L,
-      test_color == 0 & nowblocktype == 2 & testspeed == -0.3 ~ 4L,
-      test_color == 0 & nowblocktype == 2 & testspeed == -0.6 ~ 5L,
+      # Red stimulus, Block type 2 (inducer moves downward → red moves down)
+      test_color == 0 & nowblocktype == 2 & testspeed ==  0.6 ~ -0.6,
+      test_color == 0 & nowblocktype == 2 & testspeed ==  0.3 ~ -0.3,
+      test_color == 0 & nowblocktype == 2 & testspeed ==  0.0 ~  0.0,
+      test_color == 0 & nowblocktype == 2 & testspeed == -0.3 ~  0.3,
+      test_color == 0 & nowblocktype == 2 & testspeed == -0.6 ~  0.6,
       
-      # test_color == 1 (green) & nowblocktype == 1 (green↓)
-      test_color == 1 & nowblocktype == 1 & testspeed == 0.6  ~ 1L,
-      test_color == 1 & nowblocktype == 1 & testspeed == 0.3  ~ 2L,
-      test_color == 1 & nowblocktype == 1 & testspeed == 0    ~ 3L,
-      test_color == 1 & nowblocktype == 1 & testspeed == -0.3 ~ 4L,
-      test_color == 1 & nowblocktype == 1 & testspeed == -0.6 ~ 5L,
+      # Green stimulus, Block type 1 (inducer moves downward → green moves down)
+      test_color == 1 & nowblocktype == 1 & testspeed ==  0.6 ~ -0.6,
+      test_color == 1 & nowblocktype == 1 & testspeed ==  0.3 ~ -0.3,
+      test_color == 1 & nowblocktype == 1 & testspeed ==  0.0 ~  0.0,
+      test_color == 1 & nowblocktype == 1 & testspeed == -0.3 ~  0.3,
+      test_color == 1 & nowblocktype == 1 & testspeed == -0.6 ~  0.6,
       
-      # test_color == 1 (green) & nowblocktype == 2 (green↑)
-      test_color == 1 & nowblocktype == 2 & testspeed == 0.6  ~ 5L,
-      test_color == 1 & nowblocktype == 2 & testspeed == 0.3  ~ 4L,
-      test_color == 1 & nowblocktype == 2 & testspeed == 0    ~ 3L,
-      test_color == 1 & nowblocktype == 2 & testspeed == -0.3 ~ 2L,
-      test_color == 1 & nowblocktype == 2 & testspeed == -0.6 ~ 1L,
+      # Green stimulus, Block type 2 (inducer moves upward → green moves up)
+      test_color == 1 & nowblocktype == 2 & testspeed ==  0.6 ~  0.6,
+      test_color == 1 & nowblocktype == 2 & testspeed ==  0.3 ~  0.3,
+      test_color == 1 & nowblocktype == 2 & testspeed ==  0.0 ~  0.0,
+      test_color == 1 & nowblocktype == 2 & testspeed == -0.3 ~ -0.3,
+      test_color == 1 & nowblocktype == 2 & testspeed == -0.6 ~ -0.6,
       
-      TRUE ~ NA_integer_
+      TRUE ~ NA_real_
     )
   )
 
-data <- data %>%
-  mutate(sospeed = recode(sospeed,
-                          `1` = -0.6,
-                          `2` = -0.3,
-                          `3` =  0,
-                          `4` =  0.3,
-                          `5` =  0.6))
+# Factor labels
+raw <- raw %>%
+  mutate(
+    nowblocktype = factor(nowblocktype, levels = c(1, 2),
+                          labels = c("Misbinding", "Control")),
+    test_color   = factor(test_color,   levels = c(0, 1),
+                          labels = c("Test: red", "Test: green"))
+  )
 
-data$nowblocktype <- factor(data$nowblocktype,
-                            levels = c(1, 2),
-                            labels = c("Misbinding", "Control"))
+# Exclude participants with data quality issues (sub 7 & 11)
+dat <- raw %>% filter(!(Subnum %in% c(7, 11)))
 
-data$test_color <- factor(data$test_color,
-                          levels = c(0, 1),
-                          labels = c("Test : red", "Test : green"))
+# -----------------------------------------------------------------------------
+# 2. Figure 1 – Response rate opposite to the inducer (sospeed axis)
+# -----------------------------------------------------------------------------
 
-data <- data %>%
-  filter(!(Subnum %in% c(7, 11))) 
-
-summary_data <- data %>%
-  filter(Subnum %in% c(1)) %>%
-  filter(nowblocktype %in% c("Misbinding")) %>%
+sum_p1 <- dat %>%
+  filter(Subnum == 1, nowblocktype == "Misbinding") %>%
   group_by(nowblocktype, sospeed, Subnum) %>%
-  summarise(mean_keypress = mean(opposite_to_ind_response), .groups = "drop")
+  summarise(pct_opposite = mean(opposite_to_ind_response) * 100,
+            .groups = "drop")
 
-p1 <- ggplot(summary_data, aes(x = sospeed, y = mean_keypress * 100)) +
-  geom_point(size = 3) +
-  geom_line(linewidth = 1) +
+p1 <- ggplot(sum_p1, aes(x = sospeed, y = pct_opposite)) +
+  geom_line(linewidth = 0.8, color = "black") +
+  geom_point(size = 2.5,  color = "black", fill = "white",
+             shape = 21,  stroke = 0.8) +
+  scale_x_continuous(breaks = c(-0.6, -0.3, 0, 0.3, 0.6)) +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25)) +
   labs(
     x = "Test speed (°/s)",
-    y = "Rate of responses \nopposite to the inducer (%)"
+    y = "Responses opposite to inducer (%)"
   ) +
-  #facet_wrap(Subnum ~ nowblocktype) +
-  theme_minimal() +
-  theme(
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    axis.title.x = element_text(size = 16),
-    axis.title.y = element_text(size = 16),
-    axis.line = element_line(color = "black", linewidth = 0.8),
-    axis.ticks = element_line(color = "black"),
-    axis.text  = element_text(color = "black", size = 12),
-    axis.title = element_text(color = "black", size = 16)
-  )
+  theme_publication()
 
-ggsave("sum.png", p1, width = 4, height = 4, dpi = 300)
-  
-  
-#############################################################down response rate plot
-summary_data <- data %>%
-  filter(Subnum %in% c(1)) %>%
-  filter(test_color %in% c("Test : red")) %>%
-  filter(nowblocktype %in% c("Misbinding")) %>%
-  group_by(nowblocktype, testspeed, test_color,Subnum) %>%
-  summarise(mean_keypress = mean(keypress), .groups = "drop")
+ggsave("fig1_opposite_response.png", p1,
+       width = 3.7, height = 3.5, dpi = 600)
 
-p2 <- ggplot(summary_data, aes(x = testspeed, y = mean_keypress * 100)) +
-  geom_point(size = 3) +
-  geom_line(linewidth = 1) +
+# -----------------------------------------------------------------------------
+# 3. Figure 2 – Downward response rate (red test stimulus)
+# -----------------------------------------------------------------------------
+
+sum_p2 <- dat %>%
+  filter(Subnum == 1,
+         test_color   == "Test: red",
+         nowblocktype == "Misbinding") %>%
+  group_by(nowblocktype, testspeed, test_color, Subnum) %>%
+  summarise(pct_down = mean(keypress) * 100,
+            .groups = "drop")
+
+p2 <- ggplot(sum_p2, aes(x = testspeed, y = pct_down)) +
+  geom_line(linewidth = 0.8, color = "black") +
+  geom_point(size = 2.5,  color = "black", fill = "white",
+             shape = 21,  stroke = 0.8) +
+  scale_x_continuous(breaks = c(-0.6, -0.3, 0, 0.3, 0.6)) +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25)) +
   labs(
-    x = "Test speed (downward motion, °/s)",
+    x = "Test speed – downward motion (°/s)",
     y = "Downward response rate (%)"
   ) +
-  #facet_wrap(Subnum ~ nowblocktype) +
-  theme_minimal() +
-  theme(
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    axis.title.x = element_text(size = 16),
-    axis.title.y = element_text(size = 16),
-    axis.line = element_line(color = "black", linewidth = 0.8),
-    axis.ticks = element_line(color = "black"),
-    axis.text  = element_text(color = "black", size = 12),
-    axis.title = element_text(color = "black", size = 16)
-  )
+  theme_publication()
 
-ggsave("down.png", p2, width = 4, height = 4, dpi = 300)
+ggsave("fig2_downward_response.png", p2,
+       width = 3.7, height = 3.5, dpi = 600)
 
+# -----------------------------------------------------------------------------
+# 4. Figure 3 – Upward response rate (green test stimulus)
+#    Note: testspeed is negated so that the x-axis reflects upward motion
+# -----------------------------------------------------------------------------
 
-#############################################################up response rate plot
+sum_p3 <- dat %>%
+  filter(Subnum == 1,
+         test_color   == "Test: green",
+         nowblocktype == "Misbinding") %>%
+  mutate(testspeed_up = -testspeed,
+         pct_up       = 100 - mean(keypress) * 100) %>%   # per-row; aggregated below
+  group_by(nowblocktype, testspeed_up, test_color, Subnum) %>%
+  summarise(pct_up = 100 - mean(keypress) * 100,
+            .groups = "drop")
 
-data <- data %>%
-  mutate(testspeed = -testspeed)
-
-summary_data <- data %>%
-  filter(Subnum %in% c(1)) %>%
-  filter(test_color %in% c("Test : green")) %>%
-  filter(nowblocktype %in% c("Misbinding")) %>%
-  group_by(nowblocktype, testspeed, test_color,Subnum) %>%
-  summarise(mean_keypress = mean(keypress), .groups = "drop")
-
-p3 <- ggplot(summary_data, aes(x = testspeed, y = 100 - (mean_keypress * 100))) +
-  geom_point(size = 3) +
-  geom_line(linewidth = 1) +
+p3 <- ggplot(sum_p3, aes(x = testspeed_up, y = pct_up)) +
+  geom_line(linewidth = 0.8, color = "black") +
+  geom_point(size = 2.5,  color = "black", fill = "white",
+             shape = 21,  stroke = 0.8) +
+  scale_x_continuous(breaks = c(-0.6, -0.3, 0, 0.3, 0.6)) +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25)) +
   labs(
-    x = "Test speed (upward motion, °/s)",
+    x = "Test speed – upward motion (°/s)",
     y = "Upward response rate (%)"
   ) +
-  #facet_wrap(Subnum ~ nowblocktype) +
-  theme_minimal() +
-  theme(
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    axis.title.x = element_text(size = 16),
-    axis.title.y = element_text(size = 16),
-    axis.line = element_line(color = "black", linewidth = 0.8),
-    axis.ticks = element_line(color = "black"),
-    axis.text  = element_text(color = "black", size = 12),
-    axis.title = element_text(color = "black", size = 16)
-  )
+  theme_publication()
 
-ggsave("up.png", p3, width = 4, height = 4, dpi = 300)
-
-
-
+ggsave("fig3_upward_response.png", p3,
+       width = 3.7, height = 3.5, dpi = 600)
