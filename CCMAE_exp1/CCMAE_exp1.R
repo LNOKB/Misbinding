@@ -3,7 +3,7 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 
-data <- read.csv("CCMAEexp.csv")
+data <- read.csv("CCMAEexp1.csv")
 
 data <- data %>%
   mutate(
@@ -337,7 +337,7 @@ p1_long <- p1_data %>%
   pivot_longer(cols = c(Misbinding, Control),
                names_to = "Condition",
                values_to = "Value") %>%
-  mutate(Parameter = "p1 (Threshold)")
+  mutate(Parameter = "p1 (PSE)")
 
 p2_long <- p2_data %>%
   pivot_longer(cols = c(Misbinding, Control),
@@ -389,7 +389,7 @@ p1_plot <- ggplot(p1_long, aes(x = Condition, y = Value, fill = Condition)) +
   scale_fill_manual(values  = COLORS) +
   scale_color_manual(values = COLORS) +
   scale_x_discrete(limits = c("Misbinding", "Control")) +
-  labs(x = NULL, y = "Threshold",
+  labs(x = NULL, y = "PSE",
        title = parse(text = paste0(bf_label_p1))) +
   theme_publication()
 

@@ -88,6 +88,7 @@ dat <- raw %>% filter(!(Subnum %in% c(7, 11)))
 
 # -----------------------------------------------------------------------------
 # 2. Figure 1 – Response rate opposite to the inducer (sospeed axis)
+#    x-axis labels: S = Same direction as inducer, O = Opposite direction
 # -----------------------------------------------------------------------------
 
 sum_p1 <- dat %>%
@@ -100,7 +101,10 @@ p1 <- ggplot(sum_p1, aes(x = sospeed, y = pct_opposite)) +
   geom_line(linewidth = 0.8, color = "black") +
   geom_point(size = 2.5,  color = "black", fill = "white",
              shape = 21,  stroke = 0.8) +
-  scale_x_continuous(breaks = c(-0.6, -0.3, 0, 0.3, 0.6)) +
+  scale_x_continuous(
+    breaks = c(-0.6, -0.3, 0, 0.3, 0.6),
+    labels = c("S0.6", "S0.3", "0", "O0.3", "O0.6")
+  ) +
   scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25)) +
   labs(
     x = "Test speed (°/s)",
@@ -148,7 +152,7 @@ sum_p3 <- dat %>%
          test_color   == "Test: green",
          nowblocktype == "Misbinding") %>%
   mutate(testspeed_up = -testspeed,
-         pct_up       = 100 - mean(keypress) * 100) %>%   # per-row; aggregated below
+         pct_up       = 100 - mean(keypress) * 100) %>%
   group_by(nowblocktype, testspeed_up, test_color, Subnum) %>%
   summarise(pct_up = 100 - mean(keypress) * 100,
             .groups = "drop")
