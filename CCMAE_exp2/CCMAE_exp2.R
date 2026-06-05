@@ -6,7 +6,7 @@ library(ggplot2)
 library(BayesFactor)
 library(patchwork)
 
-data <- read.csv("CCMAEexp_slower.csv")
+data <- read.csv("CCMAEexp2.csv")
 
 data$nowblocktype <- factor(data$nowblocktype,
                             levels = c(1, 2),
@@ -94,7 +94,7 @@ individual_excluded_plot <- ggplot() +
     panel.spacing   = unit(0.8, "lines")
   )
 
-ggsave("fit_excluded_slower.png", individual_excluded_plot, width = 8, height = 8, units = "cm", dpi = 300)
+ggsave("fit_excluded_exp2.png", individual_excluded_plot, width = 8, height = 8, units = "cm", dpi = 300)
 
 # --- 除外後のデータ ---
 data <- data %>%
@@ -103,11 +103,31 @@ data <- data %>%
 
 fit <- quickpsy(data, sospeed, opposite_to_ind_response, grouping = c("nowblocktype", "Subnum"))
 
-write.csv(fit$par, file = "CCMAE_slower_par")
+write.csv(fit$par, file = "CCMAE_exp2_par")
 
 curves <- fit$curves
 avgs   <- fit$averages
 
+# -----------------------------------------------------------------------------
+# データ書き出し（論文投稿用）
+# -----------------------------------------------------------------------------
+
+# Figure 3a: 各参加者・条件・速度ごとの平均応答率
+write.csv(avgs, file = "Figure3a_data.csv", row.names = FALSE)
+
+# Figure 3b: PSE（p1パラメータ）
+write.csv(
+  filter(fit$par, parn == "p1"),
+  file = "Figure3b_data.csv", row.names = FALSE
+)
+
+# Figure 3c: Slope（p2パラメータ）
+write.csv(
+  filter(fit$par, parn == "p2"),
+  file = "Figure3c_data.csv", row.names = FALSE
+)
+
+# -----------------------------------------------------------------------------
 # --- 全体の平均プロット ---
 fit_plot <- ggplot() +
   geom_point(
@@ -144,7 +164,7 @@ fit_plot <- ggplot() +
   theme_publication() +
   theme(legend.position = c(0.78, 0.15))
 
-ggsave("fit_all_slower.png", fit_plot, width = 9, height = 7, units = "cm", dpi = 300)
+ggsave("fit_all_exp2.png", fit_plot, width = 9, height = 7, units = "cm", dpi = 300)
 
 # --- 参加者ごとのプロット ---
 individual_plot <- ggplot() +
@@ -184,7 +204,7 @@ individual_plot <- ggplot() +
     panel.spacing   = unit(0.8, "lines")
   )
 
-ggsave("fit_individual_slower.png", individual_plot, width = 10.8, height = 8, units = "cm", dpi = 300)
+ggsave("fit_individual_exp2.png", individual_plot, width = 10.8, height = 8, units = "cm", dpi = 300)
 
 ###############################################################################
 # ベイズ検定
@@ -332,4 +352,4 @@ p2_plot <- ggplot(p2_long, aes(x = Condition, y = Value, fill = Condition)) +
 
 combined <- p1_plot + p2_plot + plot_layout(ncol = 2)
 
-ggsave("violin_params_slower.png", combined, width = 10, height = 6, units = "cm", dpi = 300)
+ggsave("violin_params_exp2.png", combined, width = 10, height = 6, units = "cm", dpi = 300)
