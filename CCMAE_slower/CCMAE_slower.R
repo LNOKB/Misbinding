@@ -28,6 +28,7 @@ data <- data %>%
 data_excluded <- data %>%
   filter(Subnum %in% c(4, 5, 6, 8, 10, 12))
 
+
 fit_excluded <- quickpsy(data_excluded, sospeed, opposite_to_ind_response,
                          grouping = c("nowblocktype", "Subnum"))
 
@@ -98,6 +99,7 @@ ggsave("fit_excluded_slower.png", individual_excluded_plot, width = 8, height = 
 # --- 除外後のデータ ---
 data <- data %>%
   filter(!(Subnum %in% c(4, 5, 6, 8, 10, 12)))
+
 
 fit <- quickpsy(data, sospeed, opposite_to_ind_response, grouping = c("nowblocktype", "Subnum"))
 
@@ -267,7 +269,7 @@ print(summary(chains_p2))
 p1_long <- p1_data %>%
   pivot_longer(cols = c(Misbinding, Control),
                names_to = "Condition", values_to = "Value") %>%
-  mutate(Parameter = "p1 (Threshold)")
+  mutate(Parameter = "p1 (PSE)")
 
 p2_long <- p2_data %>%
   pivot_longer(cols = c(Misbinding, Control),
@@ -310,7 +312,7 @@ p1_plot <- ggplot(p1_long, aes(x = Condition, y = Value, fill = Condition)) +
   scale_fill_manual(values = COLORS) +
   scale_color_manual(values = COLORS) +
   scale_x_discrete(limits = c("Misbinding", "Control")) +
-  labs(x = NULL, y = "Threshold",
+  labs(x = NULL, y = "PSE",
        title = parse(text = bf_label_p1)) +
   theme_violin()
 
