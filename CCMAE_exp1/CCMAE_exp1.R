@@ -284,3 +284,76 @@ ggsave("violin_params.png", combined, width = 10, height = 6, units = "cm", dpi 
 write.csv(avgs,                        file = "Figure2a_data.csv", row.names = FALSE)
 write.csv(filter(fit$par, parn == "p1"), file = "Figure2b_data.csv", row.names = FALSE)
 write.csv(filter(fit$par, parn == "p2"), file = "Figure2c_data.csv", row.names = FALSE)
+
+# -----------------------------------------------------------------------------
+# 8. Supplementary: individual raw response rates (before pooling)
+#    - Red test dots:   downward response rate vs. testspeed (downward positive)
+#    - Green test dots: upward response rate   vs. testspeed (upward positive)
+# -----------------------------------------------------------------------------
+
+# Red: downward response rate
+# testspeed is negated so that positive x = downward motion
+summary_red <- data %>%
+  filter(test_color == "Test: red") %>%
+  group_by(Subnum, nowblocktype, testspeed) %>%
+  summarise(pct_down = mean(keypress) * 100, .groups = "drop")
+
+plot_red <- ggplot(summary_red,
+                   aes(x = testspeed, y = pct_down,
+                       color = nowblocktype, group = nowblocktype)) +
+  geom_point(size = 1.5, alpha = 0.8) +
+  geom_line(linewidth = 0.7) +
+  geom_hline(yintercept = 50, linetype = "dashed", linewidth = 0.4, color = "gray60") +
+  facet_wrap(~ Subnum, ncol = 5) +
+  scale_color_manual(values = COLORS) +
+  scale_x_continuous(breaks = c(-0.6, -0.3, 0, 0.3, 0.6)) +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25)) +
+  labs(
+    x     = "Test speed – downward motion (°/s)",
+    y     = "Downward response rate (%)",
+    color = NULL
+  ) +
+  theme_publication() +
+  theme(
+    legend.position = "none",
+    axis.text.x     = element_text(size = 8, angle = 45, hjust = 1),
+    strip.text      = element_text(size = 9, face = "plain"),
+    panel.spacing   = unit(0.8, "lines")
+  )
+
+# Green: upward response rate
+# testspeed is kept as-is (positive = upward motion for green)
+# upward rate = 1 - downward rate (keypress = 1 means downward)
+summary_green <- data %>%
+  filter(test_color == "Test: green") %>%
+  mutate(testspeed_up = -testspeed) %>%
+  group_by(Subnum, nowblocktype, testspeed_up) %>%
+  summarise(pct_up = (1 - mean(keypress)) * 100, .groups = "drop")
+
+plot_green <- ggplot(summary_green,
+                     aes(x = testspeed_up, y = pct_up,
+                         color = nowblocktype, group = nowblocktype)) +
+  geom_point(size = 1.5, alpha = 0.8) +
+  geom_line(linewidth = 0.7) +
+  geom_hline(yintercept = 50, linetype = "dashed", linewidth = 0.4, color = "gray60") +
+  facet_wrap(~ Subnum, ncol = 5) +
+  scale_color_manual(values = COLORS) +
+  scale_x_continuous(breaks = c(-0.6, -0.3, 0, 0.3, 0.6)) +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25)) +
+  labs(
+    x     = "Test speed – upward motion (°/s)",
+    y     = "Upward response rate (%)",
+    color = NULL
+  ) +
+  theme_publication() +
+  theme(
+    legend.position = "none",
+    axis.text.x     = element_text(size = 8, angle = 45, hjust = 1),
+    strip.text      = element_text(size = 9, face = "plain"),
+    panel.spacing   = unit(0.8, "lines")
+  )
+
+ggsave("supp_individual_red_exp1.png",   plot_red,
+       width = 18, height = 8, units = "cm", dpi = 300)
+ggsave("supp_individual_green_exp1.png", plot_green,
+       width = 18, height = 8, units = "cm", dpi = 300)
