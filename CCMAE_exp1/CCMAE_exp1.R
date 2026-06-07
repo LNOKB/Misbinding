@@ -14,11 +14,10 @@ library(patchwork)
 # 1. Load and preprocess data
 # -----------------------------------------------------------------------------
 
-data <- read.csv("CCMAEexp1.csv")
+EXCLUDED_SUBS <- c(7, 11)
 
-# Recode sospeed: direction relative to the inducer
-# (negative = same direction as inducer, positive = opposite direction)
-data <- data %>%
+# All 12 participants
+data_all <- read.csv("CCMAEexp1.csv") %>%
   mutate(
     sospeed = case_when(
       # Red stimulus, Block type 1 (inducer: red upward)
@@ -50,33 +49,41 @@ data <- data %>%
       test_color == 1 & nowblocktype == 2 & testspeed == -0.6 ~ -0.6,
       
       TRUE ~ NA_real_
-    )
-  )
-
-# Factor labels
-data <- data %>%
-  mutate(
+    ),
     nowblocktype = factor(nowblocktype, levels = c(1, 2),
                           labels = c("Misbinding", "Control")),
     test_color   = factor(test_color,   levels = c(0, 1),
                           labels = c("Test: red", "Test: green"))
   )
 
-# Exclude participants with non-convergent or unreliable psychometric fits
-data <- data %>%
-  filter(!(Subnum %in% c(7, 11)))
+# Excluded participants (sub 7 & 11 removed)
+data_excluded <- data_all %>%
+  filter(!(Subnum %in% EXCLUDED_SUBS))
+
+# Strip label colors: red for excluded participants
+strip_colors <- data_all %>%
+  distinct(Subnum) %>%
+  arrange(Subnum) %>%
+  mutate(color = ifelse(Subnum %in% EXCLUDED_SUBS, "red", "black")) %>%
+  pull(color)
 
 # -----------------------------------------------------------------------------
 # 2. Fit psychometric functions
+#    fit_all:      all 12 participants
+#    fit_excluded: 10 participants (sub 7 & 11 removed)
 # -----------------------------------------------------------------------------
 
-fit <- quickpsy(data, sospeed, opposite_to_ind_response,
-                grouping = c("nowblocktype", "Subnum"))
+fit_all      <- quickpsy(data_all,      sospeed, opposite_to_ind_response,
+                         grouping = c("nowblocktype", "Subnum"))
+fit_excluded <- quickpsy(data_excluded, sospeed, opposite_to_ind_response,
+                         grouping = c("nowblocktype", "Subnum"))
 
-print(fit$par)
+print(fit_excluded$par)
 
-curves <- fit$curves
-avgs   <- fit$averages
+curves_all      <- fit_all$curves
+avgs_all        <- fit_all$averages
+curves_excluded <- fit_excluded$curves
+avgs_excluded   <- fit_excluded$averages
 
 # -----------------------------------------------------------------------------
 # 3. Shared plot theme and color palette
@@ -104,25 +111,25 @@ speed_labels <- c("-0.6" = "S0.6", "-0.3" = "S0.3", "0" = "0",
                   "0.3" = "O0.3",  "0.6" = "O0.6")
 
 # -----------------------------------------------------------------------------
-# 4. Figure: group-average and individual psychometric functions
+# 4. fit_all: group-average psychometric functions (10 participants only)
 # -----------------------------------------------------------------------------
 
-fit_plot <- ggplot() +
+fit_excluded_plot <- ggplot() +
   # Individual observed means
   geom_point(
-    data = avgs,
+    data = avgs_excluded,
     aes(x = sospeed, y = prob, color = nowblocktype),
     size = 1.8, alpha = 0.45, shape = 16
   ) +
   # Individual fitted curves
   geom_line(
-    data = curves,
+    data = curves_excluded,
     aes(x = x, y = y, group = interaction(nowblocktype, Subnum), color = nowblocktype),
     linewidth = 0.45, alpha = 0.35
   ) +
   # Group mean curves (pointwise mean of individual fitted curves)
   stat_summary(
-    data = curves,
+    data = curves_excluded,
     aes(x = x, y = y, color = nowblocktype, group = nowblocktype),
     fun = mean, geom = "line", linewidth = 1.2
   ) +
@@ -138,22 +145,25 @@ fit_plot <- ggplot() +
   theme_publication() +
   theme(legend.position = c(0.78, 0.15))
 
-ggsave("fit_all.png", fit_plot, width = 9, height = 7, units = "cm", dpi = 300)
+ggsave("fit_excluded.png", fit_excluded_plot, width = 9, height = 7, units = "cm", dpi = 300)
 
-# Individual participant plots
+# -----------------------------------------------------------------------------
+# 5. fit_individual: all 12 participants (excluded = red strip label)
+# -----------------------------------------------------------------------------
+
 individual_plot <- ggplot() +
   geom_point(
-    data = avgs,
+    data = avgs_all,
     aes(x = sospeed, y = prob, color = nowblocktype),
     size = 1.8, alpha = 0.7, shape = 16
   ) +
   geom_line(
-    data = curves,
+    data = curves_all,
     aes(x = x, y = y, color = nowblocktype, group = nowblocktype),
     linewidth = 0.8
   ) +
   geom_hline(yintercept = 0.5, linetype = "dashed", linewidth = 0.4, color = "gray60") +
-  facet_wrap(~ Subnum, ncol = 5) +
+  facet_wrap(~ Subnum, ncol = 6) +
   scale_color_manual(values = COLORS) +
   scale_x_continuous(breaks = c(-0.6, -0.3, 0, 0.3, 0.6), labels = speed_labels) +
   scale_y_continuous(
@@ -164,20 +174,23 @@ individual_plot <- ggplot() +
   labs(x = "Test speed (°/s)", y = "Response rate (%)", color = NULL) +
   theme_publication() +
   theme(
-    legend.position = "none",
+    legend.position = "top",
     axis.text.x     = element_text(size = 8, angle = 45, hjust = 1),
     axis.text.y     = element_text(size = 8),
-    strip.text      = element_text(size = 9, face = "plain"),
+    strip.text      = element_text(size = 9, face = "plain",
+                                   color = strip_colors),
     panel.spacing   = unit(0.8, "lines")
   )
 
-ggsave("fit_individual.png", individual_plot, width = 18, height = 8, units = "cm", dpi = 300)
+ggsave("fit_individual.png", individual_plot,
+       width = 21, height = 12, units = "cm", dpi = 300)
 
 # -----------------------------------------------------------------------------
-# 5. Bayesian paired t-tests on PSE (p1) and slope (p2)
+# 6. Bayesian paired t-tests on PSE (p1) and slope (p2)
+#    Uses fit_excluded (10 participants)
 # -----------------------------------------------------------------------------
 
-dat_wide <- fit$par %>%
+dat_wide <- fit_excluded$par %>%
   pivot_wider(
     names_from  = nowblocktype,
     values_from = par,
@@ -188,12 +201,12 @@ p1_data <- dat_wide %>% filter(parn == "p1") %>% select(-parn)
 p2_data <- dat_wide %>% filter(parn == "p2") %>% select(-parn)
 
 interpret_bf <- function(bf) {
-  if      (bf > 10)  "Strong evidence for H1"
-  else if (bf > 3)   "Moderate evidence for H1"
-  else if (bf > 1)   "Anecdotal evidence for H1"
-  else if (bf > 1/3) "Inconclusive"
-  else if (bf > 1/10)"Moderate evidence for H0"
-  else               "Strong evidence for H0"
+  if      (bf > 10)   "Strong evidence for H1"
+  else if (bf > 3)    "Moderate evidence for H1"
+  else if (bf > 1)    "Anecdotal evidence for H1"
+  else if (bf > 1/3)  "Inconclusive"
+  else if (bf > 1/10) "Moderate evidence for H0"
+  else                "Strong evidence for H0"
 }
 
 report_bf <- function(label, bf_obj, par_data) {
@@ -221,7 +234,7 @@ chains_p2   <- posterior(bf_p2, iterations = 10000)
 print(summary(chains_p2))
 
 # -----------------------------------------------------------------------------
-# 6. Violin plots for PSE and slope
+# 7. Violin plots for PSE and slope
 # -----------------------------------------------------------------------------
 
 theme_violin <- function(base_size = 11) {
@@ -278,22 +291,22 @@ combined <- make_violin(p1_long, "PSE",   bf_value_p1) +
 ggsave("violin_params.png", combined, width = 10, height = 6, units = "cm", dpi = 300)
 
 # -----------------------------------------------------------------------------
-# 7. Export data for publication (one CSV per figure panel)
+# 8. Export data for publication (one CSV per figure panel)
 # -----------------------------------------------------------------------------
 
-write.csv(avgs,                        file = "Figure2a_data.csv", row.names = FALSE)
-write.csv(filter(fit$par, parn == "p1"), file = "Figure2b_data.csv", row.names = FALSE)
-write.csv(filter(fit$par, parn == "p2"), file = "Figure2c_data.csv", row.names = FALSE)
+write.csv(avgs_excluded,                            file = "Figure2a_data.csv", row.names = FALSE)
+write.csv(filter(fit_excluded$par, parn == "p1"),   file = "Figure2b_data.csv", row.names = FALSE)
+write.csv(filter(fit_excluded$par, parn == "p2"),   file = "Figure2c_data.csv", row.names = FALSE)
 
 # -----------------------------------------------------------------------------
-# 8. Supplementary: individual raw response rates (before pooling)
+# 9. Supplementary: individual raw response rates for all 12 participants
 #    - Red test dots:   downward response rate vs. testspeed (downward positive)
 #    - Green test dots: upward response rate   vs. testspeed (upward positive)
+#    Excluded participants (sub 7 & 11) are shown with red strip labels.
 # -----------------------------------------------------------------------------
 
-# Red: downward response rate
-# testspeed is negated so that positive x = downward motion
-summary_red <- data %>%
+# Red: downward response rate (positive x = downward motion)
+summary_red <- data_all %>%
   filter(test_color == "Test: red") %>%
   group_by(Subnum, nowblocktype, testspeed) %>%
   summarise(pct_down = mean(keypress) * 100, .groups = "drop")
@@ -304,7 +317,7 @@ plot_red <- ggplot(summary_red,
   geom_point(size = 1.5, alpha = 0.8) +
   geom_line(linewidth = 0.7) +
   geom_hline(yintercept = 50, linetype = "dashed", linewidth = 0.4, color = "gray60") +
-  facet_wrap(~ Subnum, ncol = 5) +
+  facet_wrap(~ Subnum, ncol = 6) +
   scale_color_manual(values = COLORS) +
   scale_x_continuous(breaks = c(-0.6, -0.3, 0, 0.3, 0.6)) +
   scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25)) +
@@ -315,16 +328,16 @@ plot_red <- ggplot(summary_red,
   ) +
   theme_publication() +
   theme(
-    legend.position = "none",
+    legend.position = "top",
     axis.text.x     = element_text(size = 8, angle = 45, hjust = 1),
-    strip.text      = element_text(size = 9, face = "plain"),
+    strip.text      = element_text(size = 9, face = "plain",
+                                   color = strip_colors),
     panel.spacing   = unit(0.8, "lines")
   )
 
-# Green: upward response rate
-# testspeed is kept as-is (positive = upward motion for green)
+# Green: upward response rate (positive x = upward motion)
 # upward rate = 1 - downward rate (keypress = 1 means downward)
-summary_green <- data %>%
+summary_green <- data_all %>%
   filter(test_color == "Test: green") %>%
   mutate(testspeed_up = -testspeed) %>%
   group_by(Subnum, nowblocktype, testspeed_up) %>%
@@ -336,7 +349,7 @@ plot_green <- ggplot(summary_green,
   geom_point(size = 1.5, alpha = 0.8) +
   geom_line(linewidth = 0.7) +
   geom_hline(yintercept = 50, linetype = "dashed", linewidth = 0.4, color = "gray60") +
-  facet_wrap(~ Subnum, ncol = 5) +
+  facet_wrap(~ Subnum, ncol = 6) +
   scale_color_manual(values = COLORS) +
   scale_x_continuous(breaks = c(-0.6, -0.3, 0, 0.3, 0.6)) +
   scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25)) +
@@ -347,13 +360,14 @@ plot_green <- ggplot(summary_green,
   ) +
   theme_publication() +
   theme(
-    legend.position = "none",
+    legend.position = "top",
     axis.text.x     = element_text(size = 8, angle = 45, hjust = 1),
-    strip.text      = element_text(size = 9, face = "plain"),
+    strip.text      = element_text(size = 9, face = "plain",
+                                   color = strip_colors),
     panel.spacing   = unit(0.8, "lines")
   )
 
 ggsave("supp_individual_red_exp1.png",   plot_red,
-       width = 18, height = 8, units = "cm", dpi = 300)
+       width = 21, height = 10, units = "cm", dpi = 300)
 ggsave("supp_individual_green_exp1.png", plot_green,
-       width = 18, height = 8, units = "cm", dpi = 300)
+       width = 21, height = 10, units = "cm", dpi = 300)
