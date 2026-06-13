@@ -9,6 +9,8 @@ library(tidyr)
 library(ggplot2)
 library(BayesFactor)
 library(patchwork)
+library(effectsize)
+
 
 # -----------------------------------------------------------------------------
 # 1. Load and preprocess data
@@ -174,6 +176,18 @@ dat_wide <- fit_excluded$par %>%
 
 p1_data <- dat_wide %>% filter(parn == "p1") %>% select(-parn)
 p2_data <- dat_wide %>% filter(parn == "p2") %>% select(-parn)
+
+# --- Frequentist one-sample t-test (preregistered) ---
+cat("\n=== Frequentist one-sample t-test (PSE difference vs. 0) ===\n")
+pse_diff <- p1_data$Misbinding - p1_data$Control
+t_pse    <- t.test(pse_diff, mu = 0)
+d_pse    <- cohens_d(pse_diff, mu = 0)
+cat("t(", t_pse$parameter, ") =", round(t_pse$statistic, 3),
+    ", p =", round(t_pse$p.value, 4),
+    ", mean diff =", round(mean(pse_diff), 4),
+    ", 95% CI = [", round(t_pse$conf.int[1], 4), ",",
+    round(t_pse$conf.int[2], 4), "]\n")
+print(d_pse)
 
 interpret_bf <- function(bf) {
   if      (bf > 10)   "Strong evidence for H1"
