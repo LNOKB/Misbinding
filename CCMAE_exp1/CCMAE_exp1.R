@@ -307,9 +307,9 @@ ggsave("violin_params.png", combined, width = 10, height = 6, units = "cm", dpi 
 # 8. Export data for publication (one CSV per figure panel)
 # -----------------------------------------------------------------------------
 
-write.csv(avgs_excluded,                            file = "Figure2a_data.csv", row.names = FALSE)
-write.csv(filter(fit_excluded$par, parn == "p1"),   file = "Figure2b_data.csv", row.names = FALSE)
-write.csv(filter(fit_excluded$par, parn == "p2"),   file = "Figure2c_data.csv", row.names = FALSE)
+write.csv(avgs_excluded,                            file = "Figure3a_data.csv", row.names = FALSE)
+write.csv(filter(fit_excluded$par, parn == "p1"),   file = "Figure3b_data.csv", row.names = FALSE)
+write.csv(filter(fit_excluded$par, parn == "p2"),   file = "Figure3c_data.csv", row.names = FALSE)
 
 # -----------------------------------------------------------------------------
 # 9. Supplementary: individual raw response rates for all 12 participants
