@@ -75,9 +75,11 @@ strip_colors <- data_all %>%
 # -----------------------------------------------------------------------------
 
 fit_all      <- quickpsy(data_all,      sospeed, opposite_to_ind_response,
-                         grouping = c("nowblocktype", "Subnum"))
+                         grouping = c("nowblocktype", "Subnum"),
+                         fun = logistic_fun)
 fit_excluded <- quickpsy(data_excluded, sospeed, opposite_to_ind_response,
-                         grouping = c("nowblocktype", "Subnum"))
+                         grouping = c("nowblocktype", "Subnum"),
+                         fun = logistic_fun)
 
 print(fit_excluded$par)
 
