@@ -18,6 +18,19 @@ library(effectsize)
 
 EXCLUDED_SUBS <- c(5, 6, 8, 10, 12)
 
+# Guess/lapse rate: fixed at the same literature-typical value used in
+# Experiment 1 (see CCMAE_exp1/guess_lapse_note.md) rather than quickpsy's
+# default of 0. The 0.2-s peripheral test stimuli make a non-zero lapse rate
+# especially plausible here (Reviewer 2, Methods Point F), and fixing it at
+# zero would fold extra lapses into the slope estimate -- the one measure on
+# which Experiment 2 shows a condition difference. As in Experiment 1, both
+# asymptotes are fixed to the same small value (see guess_lapse_note.md for
+# the full rationale) rather than estimated freely, because with only 5
+# speed levels per curve, per-participant estimation of guess/lapse as free
+# parameters is non-identifiable.
+GUESS_RATE <- 0.03
+LAPSE_RATE <- 0.03
+
 # All 12 participants
 data_all <- read.csv("CCMAEexp2.csv") %>%
   mutate(
@@ -34,6 +47,34 @@ data_all <- read.csv("CCMAEexp2.csv") %>%
 data_excluded <- data_all %>%
   filter(!(Subnum %in% EXCLUDED_SUBS))
 
+# -----------------------------------------------------------------------------
+# 1b. Exclusion criterion: Cochran-Armitage trend test (Methods, Data Analysis)
+#     For each participant x condition, test whether the proportion of
+#     "opposite" responses increases with signed test speed, on raw trial
+#     counts (no psychometric fit involved). A participant is excluded if the
+#     test fails to reach a Bonferroni-corrected alpha = .05/24 (12
+#     participants x 2 conditions) in at least one condition. The check below
+#     confirms that this rule reproduces EXCLUDED_SUBS exactly.
+# -----------------------------------------------------------------------------
+
+CA_ALPHA <- 0.05 / 24
+
+ca_tests <- data_all %>%
+  group_by(Subnum, nowblocktype, sospeed) %>%
+  summarise(k = sum(opposite_to_ind_response), n = n(), .groups = "drop") %>%
+  group_by(Subnum, nowblocktype) %>%
+  summarise(p = prop.trend.test(k, n, score = sospeed)$p.value, .groups = "drop")
+
+ca_by_sub <- ca_tests %>%
+  group_by(Subnum) %>%
+  summarise(worst_p = max(p), excluded_by_rule = worst_p > CA_ALPHA)
+
+cat("\n=== Cochran-Armitage trend test (exclusion criterion, alpha =",
+    signif(CA_ALPHA, 3), ") ===\n")
+print(as.data.frame(ca_tests), digits = 3)
+print(as.data.frame(ca_by_sub), digits = 3)
+stopifnot(setequal(ca_by_sub$Subnum[ca_by_sub$excluded_by_rule], EXCLUDED_SUBS))
+
 # Strip label colors: red for excluded participants
 strip_colors <- data_all %>%
   distinct(Subnum) %>%
@@ -49,10 +90,12 @@ strip_colors <- data_all %>%
 
 fit_all      <- quickpsy(data_all,      sospeed, opposite_to_ind_response,
                          grouping = c("nowblocktype", "Subnum"),
-                         fun = logistic_fun)
+                         fun = logistic_fun,
+                         guess = GUESS_RATE, lapses = LAPSE_RATE)
 fit_excluded <- quickpsy(data_excluded, sospeed, opposite_to_ind_response,
                          grouping = c("nowblocktype", "Subnum"),
-                         fun = logistic_fun)
+                         fun = logistic_fun,
+                         guess = GUESS_RATE, lapses = LAPSE_RATE)
 
 print(fit_excluded$par)
 
@@ -188,6 +231,19 @@ cat("t(", t_pse$parameter, ") =", round(t_pse$statistic, 3),
     ", 95% CI = [", round(t_pse$conf.int[1], 4), ",",
     round(t_pse$conf.int[2], 4), "]\n")
 print(d_pse)
+
+# --- Frequentist one-sample t-test on slope differences (non-preregistered
+#     supplementary check, reported alongside the PSE test in the Results) ---
+cat("\n=== Frequentist one-sample t-test (slope difference vs. 0; non-preregistered) ===\n")
+slope_diff <- p2_data$Misbinding - p2_data$Control
+t_slope    <- t.test(slope_diff, mu = 0)
+d_slope    <- cohens_d(slope_diff, mu = 0)
+cat("t(", t_slope$parameter, ") =", round(t_slope$statistic, 3),
+    ", p =", round(t_slope$p.value, 4),
+    ", mean diff =", round(mean(slope_diff), 4),
+    ", 95% CI = [", round(t_slope$conf.int[1], 4), ",",
+    round(t_slope$conf.int[2], 4), "]\n")
+print(d_slope)
 
 interpret_bf <- function(bf) {
   if      (bf > 10)   "Strong evidence for H1"
@@ -360,3 +416,184 @@ ggsave("supp_individual_red_exp2.png",   plot_red,
        width = 21, height = 10, units = "cm", dpi = 300)
 ggsave("supp_individual_green_exp2.png", plot_green,
        width = 21, height = 10, units = "cm", dpi = 300)
+
+# -----------------------------------------------------------------------------
+# 10. Bayesian paired t-tests on PSE (p1) and slope (p2)
+#     Uses fit_all (ALL 12 participants, no exclusion)
+#     Reviewer 1 #3 / Reviewer 2 Methods Point B, D: report the full sample
+#     alongside the excluded-sample analysis, since ~42% of participants
+#     were excluded in Experiment 2 using a non-preregistered criterion.
+# -----------------------------------------------------------------------------
+
+dat_wide_all <- fit_all$par %>%
+  pivot_wider(
+    names_from  = nowblocktype,
+    values_from = par,
+    id_cols     = c(Subnum, parn)
+  )
+
+p1_data_all <- dat_wide_all %>% filter(parn == "p1") %>% select(-parn)
+p2_data_all <- dat_wide_all %>% filter(parn == "p2") %>% select(-parn)
+
+cat("\n=== Bayesian analysis: ALL participants (n = 12, no exclusion) ===\n")
+
+bf_p1_all       <- ttestBF(x = p1_data_all$Misbinding, y = p1_data_all$Control, paired = TRUE)
+bf_value_p1_all <- report_bf("PSE (p1) - all participants", bf_p1_all, p1_data_all)
+chains_p1_all   <- posterior(bf_p1_all, iterations = 10000)
+print(summary(chains_p1_all))
+
+bf_p2_all       <- ttestBF(x = p2_data_all$Misbinding, y = p2_data_all$Control, paired = TRUE)
+bf_value_p2_all <- report_bf("Slope (p2) - all participants", bf_p2_all, p2_data_all)
+chains_p2_all   <- posterior(bf_p2_all, iterations = 10000)
+print(summary(chains_p2_all))
+
+# -----------------------------------------------------------------------------
+# 11. Bayesian paired t-tests WITHOUT pooling color (red & green fit separately)
+#     Uses fit_excluded_color. Reviewer 1 #2 / Reviewer 2 Methods Point E:
+#     the color-motion pairing was fixed (not counterbalanced), so a
+#     color-specific bias could masquerade as (or obscure) a condition
+#     effect once red and green are pooled.
+# -----------------------------------------------------------------------------
+
+fit_excluded_color <- quickpsy(data_excluded, sospeed, opposite_to_ind_response,
+                               grouping = c("nowblocktype", "test_color", "Subnum"),
+                               fun = logistic_fun,
+                               guess = GUESS_RATE, lapses = LAPSE_RATE)
+
+curves_excluded_color <- fit_excluded_color$curves
+avgs_excluded_color   <- fit_excluded_color$averages
+
+dat_wide_color <- fit_excluded_color$par %>%
+  pivot_wider(
+    names_from  = nowblocktype,
+    values_from = par,
+    id_cols     = c(Subnum, test_color, parn)
+  )
+
+cat("\n=== Bayesian analysis WITHOUT pooling color (red & green fit separately) ===\n")
+
+bf_by_color <- list()
+
+for (parn_label in c("p1", "p2")) {
+  y_label <- if (parn_label == "p1") "PSE" else "Slope"
+  par_data <- dat_wide_color %>% filter(parn == parn_label)
+
+  for (col in levels(par_data$test_color)) {
+    sub_data <- par_data %>% filter(test_color == col)
+    bf_obj   <- ttestBF(x = sub_data$Misbinding, y = sub_data$Control, paired = TRUE)
+    label    <- sprintf("%s (%s)", y_label, col)
+    bf_val   <- report_bf(label, bf_obj, sub_data)
+    bf_by_color[[paste(parn_label, col)]] <- bf_val
+
+    # Frequentist paired t-test on the same data (reported in the response
+    # letter alongside the color-separated BFs)
+    t_col <- t.test(sub_data$Misbinding, sub_data$Control, paired = TRUE)
+    cat("Paired t-test: t(", t_col$parameter, ") =", round(t_col$statistic, 3),
+        ", p =", round(t_col$p.value, 4), "\n")
+  }
+}
+
+fit_excluded_bycolor_plot <- ggplot() +
+  geom_point(
+    data = avgs_excluded_color,
+    aes(x = sospeed, y = prob, color = nowblocktype),
+    size = 1.8, alpha = 0.45, shape = 16
+  ) +
+  geom_line(
+    data = curves_excluded_color,
+    aes(x = x, y = y, group = interaction(nowblocktype, Subnum), color = nowblocktype),
+    linewidth = 0.45, alpha = 0.35
+  ) +
+  stat_summary(
+    data = curves_excluded_color,
+    aes(x = x, y = y, color = nowblocktype, group = nowblocktype),
+    fun = mean, geom = "line", linewidth = 1.2
+  ) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", linewidth = 0.4, color = "gray60") +
+  facet_wrap(~ test_color) +
+  scale_color_manual(values = COLORS) +
+  scale_x_continuous(breaks = c(-0.4, -0.2, 0, 0.2, 0.4), labels = speed_labels) +
+  scale_y_continuous(
+    limits = c(0, 1),
+    breaks = seq(0, 1, 0.25),
+    labels = scales::percent_format(accuracy = 1)
+  ) +
+  labs(x = "Test speed (°/s)", y = "Response rate (%)", color = NULL) +
+  theme_publication() +
+  theme(legend.position = "top")
+
+ggsave("fit_excluded_bycolor_exp2.png", fit_excluded_bycolor_plot,
+       width = 16, height = 8, units = "cm", dpi = 300)
+
+# -----------------------------------------------------------------------------
+# 12. Formal test of color symmetry (Reviewer 1 #2; Reviewer 2 Methods-E /
+#     Procedure-B). See CCMAE_exp1/CCMAE_exp1.R section 13 for the identical
+#     approach applied to Experiment 1.
+# -----------------------------------------------------------------------------
+
+cat("\n=== Color-symmetry test: is the Misbinding-Control effect the same for red and green test stimuli? ===\n")
+
+color_diff_wide <- dat_wide_color %>%
+  mutate(diff = Misbinding - Control) %>%
+  select(Subnum, test_color, parn, diff) %>%
+  pivot_wider(names_from = test_color, values_from = diff, id_cols = c(Subnum, parn))
+
+bf_color_symmetry <- list()
+
+for (parn_label in c("p1", "p2")) {
+  y_label  <- if (parn_label == "p1") "PSE" else "Slope"
+  sub_data <- color_diff_wide %>% filter(parn == parn_label)
+
+  bf_obj <- ttestBF(x = sub_data[["Test: red"]], y = sub_data[["Test: green"]], paired = TRUE)
+  bf_val <- extractBF(bf_obj)$bf
+
+  cat(sprintf("\n--- Color symmetry: %s (red diff vs. green diff) ---\n", y_label))
+  cat("n =", nrow(sub_data), "\n")
+  cat("Red (Misbinding-Control) mean:",   mean(sub_data[["Test: red"]]),   "\n")
+  cat("Green (Misbinding-Control) mean:", mean(sub_data[["Test: green"]]), "\n")
+  cat("BF10 (red vs. green difference):", bf_val, "\n")
+  cat("BF01:", 1 / bf_val, "\n")
+  cat("Interpretation:", interpret_bf(bf_val), "\n")
+
+  bf_color_symmetry[[parn_label]] <- bf_val
+}
+
+# -----------------------------------------------------------------------------
+# 13. Supplementary check (response letter, Reviewer 2 Methods Point F):
+#     guess fixed at 0, lapse estimated freely per participant (3-parameter
+#     fit). With only 5 speed levels per curve this fit is unstable: lapse
+#     estimates can fall outside [0, 1] and slopes can change drastically
+#     relative to the fixed guess = lapse = 0.03 fit used in the main analysis.
+#     Not used for any reported inference.
+# -----------------------------------------------------------------------------
+
+fit_free_lapse <- quickpsy(data_all, sospeed, opposite_to_ind_response,
+                           grouping = c("nowblocktype", "Subnum"),
+                           fun = logistic_fun,
+                           guess = 0, lapses = TRUE, bootstrap = "none")
+
+free_lapse_compare <- fit_free_lapse$par %>%
+  pivot_wider(names_from = parn, values_from = par,
+              id_cols = c(nowblocktype, Subnum)) %>%
+  rename(slope_free = p2, lapse_free = p3) %>%
+  left_join(fit_all$par %>% filter(parn == "p2") %>%
+              select(nowblocktype, Subnum, slope_fixed = par),
+            by = c("nowblocktype", "Subnum")) %>%
+  mutate(excluded = Subnum %in% EXCLUDED_SUBS)
+
+cat("\n=== Free-lapse (guess = 0) fit: lapse estimates and slope vs. fixed 0.03 fit ===\n")
+print(as.data.frame(free_lapse_compare %>% select(-p1)), digits = 3)
+cat("Cells with negative lapse estimates:",
+    sum(free_lapse_compare$lapse_free < 0), "of", nrow(free_lapse_compare), "\n")
+
+# -----------------------------------------------------------------------------
+# 14. Save fit objects for cross-script reuse (e.g. by
+#     Perception_manuscript/revision/bayesian_sensitivity_analysis.R), so
+#     that combining Experiment 1 and Experiment 2 results does not require
+#     sourcing both scripts into the same R session (their objects share
+#     names and would overwrite each other).
+# -----------------------------------------------------------------------------
+
+saveRDS(list(fit_all = fit_all, fit_excluded = fit_excluded,
+             fit_excluded_color = fit_excluded_color),
+        file = "fit_objects_exp2.rds")
